@@ -1,0 +1,769 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Aim Trainer | Wall Targets | Random Tracking + Smart Spawn</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: 'Segoe UI', 'Poppins', 'Arial', sans-serif;
+        }
+        .crosshair-container {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 1000;
+            pointer-events: none;
+        }
+        .crosshair-line {
+            position: absolute;
+            background-color: white;
+        }
+        .crosshair-dot {
+            position: absolute;
+            background-color: white;
+            border-radius: 50%;
+        }
+        .stats-panel {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(0,0,0,0.7);
+            backdrop-filter: blur(8px);
+            padding: 12px 24px;
+            border-radius: 16px;
+            color: white;
+            font-weight: bold;
+            font-size: 24px;
+            font-family: monospace;
+            z-index: 10;
+            border-left: 4px solid #ffaa44;
+            pointer-events: none;
+        }
+        .stats-panel div {
+            margin: 4px 0;
+        }
+        .stats-panel .mode-name {
+            font-size: 16px;
+            color: #ffaa44;
+        }
+        .instruction {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(0,0,0,0.6);
+            padding: 8px 14px;
+            border-radius: 12px;
+            font-size: 13px;
+            color: #ddd;
+            font-family: monospace;
+            pointer-events: none;
+            backdrop-filter: blur(4px);
+            text-align: right;
+        }
+        .shortcuts {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(0,0,0,0.6);
+            padding: 8px 14px;
+            border-radius: 12px;
+            font-size: 12px;
+            color: #aaa;
+            font-family: monospace;
+            pointer-events: none;
+            backdrop-filter: blur(4px);
+        }
+        .settings-modal {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 340px;
+            background: rgba(20,20,35,0.96);
+            backdrop-filter: blur(12px);
+            border-radius: 20px;
+            padding: 24px;
+            z-index: 200;
+            color: white;
+            font-family: 'Segoe UI';
+            box-shadow: 0 10px 30px rgba(0,0,0,0.6);
+            border: 1px solid #ffaa44;
+            display: none;
+            flex-direction: column;
+            gap: 14px;
+            pointer-events: auto;
+        }
+        .settings-modal h3 {
+            margin: 0 0 8px 0;
+            text-align: center;
+            color: #ffaa44;
+        }
+        .setting-item {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        .setting-item label {
+            font-size: 14px;
+        }
+        input[type="range"] {
+            width: 100%;
+            cursor: pointer;
+        }
+        .color-input {
+            width: 100%;
+            height: 36px;
+            border: none;
+            cursor: pointer;
+        }
+        .checkbox-item {
+            flex-direction: row;
+            align-items: center;
+            gap: 12px;
+        }
+        button {
+            background: #ffaa44;
+            border: none;
+            padding: 8px;
+            border-radius: 40px;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 8px;
+        }
+        @media (max-width: 700px) {
+            .stats-panel { font-size: 18px; padding: 8px 16px; }
+            .instruction, .shortcuts { font-size: 10px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="stats-panel">
+        <div>🎯 SCORE: <span id="scoreValue">0</span></div>
+        <div>⏱️ TIME: <span id="timerValue">60</span></div>
+        <div class="mode-name" id="modeNameDisplay">⚡ GRIDSHOT</div>
+        <div class="mode-name" id="diffDisplay">🔰 EASY</div>
+    </div>
+    <div class="shortcuts">
+        🎮 SHORTCUTS:<br>
+        G = GridShot | T = Tracking<br>
+        1=EASY 2=MEDIUM 3=HARD 4=INCREDIBLE<br>
+        ESC = Settings
+    </div>
+    <div class="instruction">
+        🖱️ CLICK TO LOCK | 🔫 AIM + CLICK (GRIDSHOT) / TRACK (TRACKING)
+    </div>
+
+    <div class="crosshair-container" id="crosshairContainer">
+        <div class="crosshair-line" id="crosshairH"></div>
+        <div class="crosshair-line" id="crosshairV"></div>
+        <div class="crosshair-dot" id="crosshairDot"></div>
+    </div>
+
+    <div id="settingsModal" class="settings-modal">
+        <h3>⚙️ AIM TRAINER SETTINGS</h3>
+        <div class="setting-item">
+            <label>🔫 SENSITIVITY: <span id="sensValue">1.00</span></label>
+            <input type="range" id="sensitivitySlider" min="0.3" max="3.0" step="0.01" value="1.0">
+        </div>
+        <div class="setting-item">
+            <label>🎨 CROSSHAIR COLOR</label>
+            <input type="color" id="crosshairColor" value="#ffffff">
+        </div>
+        <div class="setting-item">
+            <label>📏 THICKNESS (px): <span id="thickValue">2</span></label>
+            <input type="range" id="crosshairThickness" min="1" max="6" step="1" value="2">
+        </div>
+        <div class="setting-item">
+            <label>📐 LENGTH (px): <span id="lengthValue">12</span></label>
+            <input type="range" id="crosshairLength" min="6" max="28" step="1" value="12">
+        </div>
+        <div class="setting-item checkbox-item">
+            <label>🔘 CENTER DOT</label>
+            <input type="checkbox" id="dotToggle" checked>
+        </div>
+        <button id="closeSettingsBtn">SAVE & CLOSE</button>
+    </div>
+
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.128.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.128.0/examples/jsm/"
+            }
+        }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
+
+        // ---------- DOM Elements ----------
+        const settingsModal = document.getElementById('settingsModal');
+        const sensSlider = document.getElementById('sensitivitySlider');
+        const sensSpan = document.getElementById('sensValue');
+        const crosshairColorPicker = document.getElementById('crosshairColor');
+        const thickSlider = document.getElementById('crosshairThickness');
+        const thickSpan = document.getElementById('thickValue');
+        const lengthSlider = document.getElementById('crosshairLength');
+        const lengthSpan = document.getElementById('lengthValue');
+        const dotToggle = document.getElementById('dotToggle');
+        const closeSettingsBtn = document.getElementById('closeSettingsBtn');
+        const scoreSpan = document.getElementById('scoreValue');
+        const timerSpan = document.getElementById('timerValue');
+        const modeNameSpan = document.getElementById('modeNameDisplay');
+        const diffDisplaySpan = document.getElementById('diffDisplay');
+
+        // ---------- Game State ----------
+        let currentMode = 'gridshot';
+        let currentDifficulty = 'easy';
+        let score = 0;
+        let timeLeft = 60;
+        let gameActive = true;
+        let timerInterval = null;
+        
+        let gridTargets = [];
+        let trackingTarget = null;
+        let trackingHealth = 100;
+        let trackingMaxHealth = 100;
+        let trackingVelocity = new THREE.Vector2(2.0, 1.8);
+        
+        const difficultySettings = {
+            easy:     { radius: 0.55, speedMult: 0.7, trackingHealth: 100, trackingDamagePerSec: 25 },
+            medium:   { radius: 0.45, speedMult: 1.0, trackingHealth: 100, trackingDamagePerSec: 20 },
+            hard:     { radius: 0.35, speedMult: 1.4, trackingHealth: 100, trackingDamagePerSec: 18 },
+            incredible:{ radius: 0.28, speedMult: 1.9, trackingHealth: 100, trackingDamagePerSec: 16 }
+        };
+        
+        // ----- 3D Setup -----
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x111122);
+        
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(0, 1.5, 3.5);
+        camera.rotation.order = 'YXZ';
+        
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMap.enabled = true;
+        document.body.appendChild(renderer.domElement);
+        
+        const labelRenderer = new CSS2DRenderer();
+        labelRenderer.setSize(window.innerWidth, window.innerHeight);
+        labelRenderer.domElement.style.position = 'absolute';
+        labelRenderer.domElement.style.top = '0px';
+        labelRenderer.domElement.style.left = '0px';
+        labelRenderer.domElement.style.pointerEvents = 'none';
+        labelRenderer.domElement.style.zIndex = '5';
+        document.body.appendChild(labelRenderer.domElement);
+        
+        // Lighting
+        const ambientLight = new THREE.AmbientLight(0x404060);
+        scene.add(ambientLight);
+        const mainLight = new THREE.DirectionalLight(0xffeedd, 1.2);
+        mainLight.position.set(3, 5, 2);
+        mainLight.castShadow = true;
+        scene.add(mainLight);
+        const fillLight = new THREE.PointLight(0x6688cc, 0.5);
+        fillLight.position.set(0, 1.5, 0);
+        scene.add(fillLight);
+        const backLight = new THREE.PointLight(0xffaa66, 0.3);
+        backLight.position.set(0, 1.2, -3);
+        scene.add(backLight);
+        
+        // ----- Simple Box Room -----
+        const wallMaterial = new THREE.MeshStandardMaterial({ color: 0xc0c0e0, roughness: 0.4 });
+        const floorMaterial = new THREE.MeshStandardMaterial({ color: 0x8b5a2b, roughness: 0.7 });
+        const roomSize = 8;
+        const wallHeight = 4;
+        
+        // Floor
+        const floor = new THREE.Mesh(new THREE.PlaneGeometry(roomSize, roomSize), floorMaterial);
+        floor.rotation.x = -Math.PI / 2;
+        floor.position.y = -0.1;
+        floor.receiveShadow = true;
+        scene.add(floor);
+        
+        // Rug
+        const rugMat = new THREE.MeshStandardMaterial({ color: 0xa55d35, roughness: 0.8 });
+        const rug = new THREE.Mesh(new THREE.BoxGeometry(3.5, 0.05, 2.8), rugMat);
+        rug.position.set(0, -0.07, 1.2);
+        rug.receiveShadow = true;
+        scene.add(rug);
+        
+        // Ceiling
+        const ceiling = new THREE.Mesh(new THREE.PlaneGeometry(roomSize, roomSize), new THREE.MeshStandardMaterial({ color: 0xddddff, roughness: 0.6 }));
+        ceiling.rotation.x = Math.PI / 2;
+        ceiling.position.y = wallHeight - 0.1;
+        ceiling.receiveShadow = true;
+        scene.add(ceiling);
+        
+        // Walls
+        const wallThick = 0.2;
+        // Back wall (target wall)
+        const backWall = new THREE.Mesh(new THREE.BoxGeometry(roomSize, wallHeight, wallThick), wallMaterial);
+        backWall.position.set(0, wallHeight/2, -roomSize/2);
+        backWall.receiveShadow = true;
+        scene.add(backWall);
+        // Front wall (lower)
+        const frontWall = new THREE.Mesh(new THREE.BoxGeometry(roomSize, 1.2, wallThick), wallMaterial);
+        frontWall.position.set(0, 0.6, roomSize/2);
+        frontWall.receiveShadow = true;
+        scene.add(frontWall);
+        // Left wall
+        const leftWall = new THREE.Mesh(new THREE.BoxGeometry(wallThick, wallHeight, roomSize), wallMaterial);
+        leftWall.position.set(-roomSize/2, wallHeight/2, 0);
+        leftWall.receiveShadow = true;
+        scene.add(leftWall);
+        // Right wall
+        const rightWall = new THREE.Mesh(new THREE.BoxGeometry(wallThick, wallHeight, roomSize), wallMaterial);
+        rightWall.position.set(roomSize/2, wallHeight/2, 0);
+        rightWall.receiveShadow = true;
+        scene.add(rightWall);
+        
+        // Decorative target board
+        const boardMat = new THREE.MeshStandardMaterial({ color: 0xccaa88 });
+        const board = new THREE.Mesh(new THREE.BoxGeometry(5, 3, 0.1), boardMat);
+        board.position.set(0, 1.5, -roomSize/2 + 0.12);
+        scene.add(board);
+        
+        // Ceiling light
+        const lightSphere = new THREE.Mesh(new THREE.SphereGeometry(0.3, 16, 16), new THREE.MeshStandardMaterial({ color: 0xffdd99, emissive: 0xffaa66, emissiveIntensity: 0.5 }));
+        lightSphere.position.set(0, wallHeight - 0.4, 0);
+        scene.add(lightSphere);
+        
+        // ----- Helper Functions -----
+        function updateCrosshairStyle() {
+            const color = crosshairColorPicker.value;
+            const thickness = parseInt(thickSlider.value);
+            const length = parseInt(lengthSlider.value);
+            const dotEnabled = dotToggle.checked;
+            const hLine = document.getElementById('crosshairH');
+            const vLine = document.getElementById('crosshairV');
+            const dot = document.getElementById('crosshairDot');
+            hLine.style.width = `${length}px`;
+            hLine.style.height = `${thickness}px`;
+            hLine.style.backgroundColor = color;
+            hLine.style.top = `-${thickness/2}px`;
+            hLine.style.left = `-${length/2}px`;
+            vLine.style.width = `${thickness}px`;
+            vLine.style.height = `${length}px`;
+            vLine.style.backgroundColor = color;
+            vLine.style.top = `-${length/2}px`;
+            vLine.style.left = `-${thickness/2}px`;
+            if (dotEnabled) {
+                dot.style.display = 'block';
+                dot.style.width = `${thickness + 2}px`;
+                dot.style.height = `${thickness + 2}px`;
+                dot.style.backgroundColor = color;
+                dot.style.top = `-${(thickness+2)/2}px`;
+                dot.style.left = `-${(thickness+2)/2}px`;
+            } else {
+                dot.style.display = 'none';
+            }
+        }
+        
+        function saveSettings() {
+            const settings = {
+                sensitivity: parseFloat(sensSlider.value),
+                crosshairColor: crosshairColorPicker.value,
+                thickness: parseInt(thickSlider.value),
+                length: parseInt(lengthSlider.value),
+                dotEnabled: dotToggle.checked
+            };
+            localStorage.setItem('aimTrainerSettings', JSON.stringify(settings));
+        }
+        
+        function loadSettings() {
+            const saved = localStorage.getItem('aimTrainerSettings');
+            if (saved) {
+                try {
+                    const s = JSON.parse(saved);
+                    sensSlider.value = s.sensitivity;
+                    window.mouseSensitivity = s.sensitivity;
+                    sensSpan.innerText = s.sensitivity.toFixed(2);
+                    crosshairColorPicker.value = s.crosshairColor;
+                    thickSlider.value = s.thickness;
+                    lengthSlider.value = s.length;
+                    dotToggle.checked = s.dotEnabled;
+                    thickSpan.innerText = s.thickness;
+                    lengthSpan.innerText = s.length;
+                    updateCrosshairStyle();
+                } catch(e) {}
+            } else {
+                updateCrosshairStyle();
+                window.mouseSensitivity = 1.0;
+            }
+        }
+        
+        function updateUI() {
+            scoreSpan.innerText = score;
+            timerSpan.innerText = timeLeft;
+            modeNameSpan.innerText = currentMode === 'gridshot' ? '⚡ GRIDSHOT' : '🌀 TRACKING';
+            const diffName = { easy: '🔰 EASY', medium: '⚙️ MEDIUM', hard: '🔥 HARD', incredible: '💀 INCREDIBLE' };
+            diffDisplaySpan.innerText = diffName[currentDifficulty];
+        }
+        
+        // --- GridShot: 3 targets on back wall with spacing ---
+        function isValidPosition(x, y, excludeTarget = null) {
+            const minDistance = 1.0; // minimum distance between centers (in world units)
+            for (let target of gridTargets) {
+                if (excludeTarget === target) continue;
+                const dx = target.position.x - x;
+                const dy = target.position.y - y;
+                const dist = Math.sqrt(dx*dx + dy*dy);
+                if (dist < minDistance) return false;
+            }
+            return true;
+        }
+        
+        function getRandomWallPosition() {
+            const boundX = 2.2;
+            const lowerY = 0.7;
+            const upperY = 3.0;
+            return {
+                x: (Math.random() - 0.5) * (boundX * 2),
+                y: lowerY + Math.random() * (upperY - lowerY)
+            };
+        }
+        
+        function spawnGridshotTargets() {
+            gridTargets.forEach(t => scene.remove(t));
+            gridTargets = [];
+            const radius = difficultySettings[currentDifficulty].radius;
+            const color = 0xff5566;
+            const wallZ = -roomSize/2 + 0.15;
+            for (let i = 0; i < 3; i++) {
+                let attempts = 0;
+                let pos;
+                do {
+                    pos = getRandomWallPosition();
+                    attempts++;
+                    if (attempts > 50) break; // fallback
+                } while (!isValidPosition(pos.x, pos.y));
+                const sphere = new THREE.Mesh(
+                    new THREE.SphereGeometry(radius, 32, 32),
+                    new THREE.MeshStandardMaterial({ color: color, emissive: 0x441122, emissiveIntensity: 0.3 })
+                );
+                sphere.castShadow = true;
+                sphere.position.set(pos.x, pos.y, wallZ);
+                scene.add(sphere);
+                gridTargets.push(sphere);
+            }
+        }
+        
+        function respawnGridTarget(target) {
+            const radius = difficultySettings[currentDifficulty].radius;
+            const wallZ = -roomSize/2 + 0.15;
+            let attempts = 0;
+            let pos;
+            do {
+                pos = getRandomWallPosition();
+                attempts++;
+                if (attempts > 50) break;
+            } while (!isValidPosition(pos.x, pos.y, target));
+            target.position.set(pos.x, pos.y, wallZ);
+            target.material.emissiveIntensity = 0.7;
+            setTimeout(() => { if(target.material) target.material.emissiveIntensity = 0.2; }, 100);
+        }
+        
+        // --- Tracking: random movement with occasional direction changes ---
+        let healthBarObj = null;
+        function createHealthBar() {
+            if (healthBarObj) scene.remove(healthBarObj);
+            const div = document.createElement('div');
+            div.style.width = '80px';
+            div.style.height = '8px';
+            div.style.backgroundColor = '#333';
+            div.style.borderRadius = '4px';
+            div.style.overflow = 'hidden';
+            div.style.border = '1px solid white';
+            const fill = document.createElement('div');
+            fill.style.width = '100%';
+            fill.style.height = '100%';
+            fill.style.backgroundColor = '#ff5555';
+            fill.style.transition = 'width 0.05s linear';
+            div.appendChild(fill);
+            const wrapper = document.createElement('div');
+            wrapper.appendChild(div);
+            const barObj = new CSS2DObject(wrapper);
+            barObj.userData = { fillElement: fill };
+            return barObj;
+        }
+        
+        function spawnTrackingTarget() {
+            if (trackingTarget) scene.remove(trackingTarget);
+            const radius = difficultySettings[currentDifficulty].radius;
+            const sphere = new THREE.Mesh(
+                new THREE.SphereGeometry(radius, 48, 48),
+                new THREE.MeshStandardMaterial({ color: 0x33ffaa, emissive: 0x226655, emissiveIntensity: 0.4 })
+            );
+            sphere.castShadow = true;
+            const wallZ = -roomSize/2 + 0.15;
+            const x = (Math.random() - 0.5) * 4.5;
+            const y = 0.7 + Math.random() * 2.5;
+            sphere.position.set(x, y, wallZ);
+            scene.add(sphere);
+            trackingTarget = sphere;
+            
+            if (healthBarObj) scene.remove(healthBarObj);
+            healthBarObj = createHealthBar();
+            scene.add(healthBarObj);
+            updateHealthBarPosition();
+            
+            trackingMaxHealth = difficultySettings[currentDifficulty].trackingHealth;
+            trackingHealth = trackingMaxHealth;
+            updateHealthBarFill();
+            
+            const speedMult = difficultySettings[currentDifficulty].speedMult;
+            const baseSpeed = 2.2;
+            const angle = Math.random() * Math.PI * 2;
+            const spd = baseSpeed * speedMult;
+            trackingVelocity.set(Math.cos(angle) * spd, Math.sin(angle) * spd);
+        }
+        
+        function updateHealthBarFill() {
+            if (!healthBarObj || !healthBarObj.userData.fillElement) return;
+            const percent = Math.max(0, trackingHealth / trackingMaxHealth) * 100;
+            healthBarObj.userData.fillElement.style.width = `${percent}%`;
+            const color = percent > 60 ? '#55ff55' : (percent > 30 ? '#ffaa44' : '#ff5555');
+            healthBarObj.userData.fillElement.style.backgroundColor = color;
+        }
+        
+        function updateHealthBarPosition() {
+            if (healthBarObj && trackingTarget) {
+                healthBarObj.position.copy(trackingTarget.position);
+                healthBarObj.position.y += trackingTarget.geometry.parameters.radius + 0.4;
+            }
+        }
+        
+        function updateTrackingMovement(deltaSec) {
+            if (!trackingTarget) return;
+            const radius = difficultySettings[currentDifficulty].radius;
+            let newX = trackingTarget.position.x + trackingVelocity.x * deltaSec;
+            let newY = trackingTarget.position.y + trackingVelocity.y * deltaSec;
+            const boundX = 2.8;
+            const boundY = 3.2;
+            const lowerY = 0.6;
+            let changed = false;
+            if (newX > boundX) { newX = boundX; trackingVelocity.x *= -1; changed = true; }
+            if (newX < -boundX) { newX = -boundX; trackingVelocity.x *= -1; changed = true; }
+            if (newY > boundY) { newY = boundY; trackingVelocity.y *= -1; changed = true; }
+            if (newY < lowerY) { newY = lowerY; trackingVelocity.y *= -1; changed = true; }
+            trackingTarget.position.set(newX, newY, -roomSize/2 + 0.15);
+            
+            // Random direction changes every ~0.5-1.5 seconds for more erratic movement
+            if (Math.random() < 0.02 * (deltaSec * 60)) { // ~2% chance per frame at 60fps
+                const angle = Math.random() * Math.PI * 2;
+                const speed = Math.sqrt(trackingVelocity.x*trackingVelocity.x + trackingVelocity.y*trackingVelocity.y);
+                const newDir = new THREE.Vector2(Math.cos(angle), Math.sin(angle)).multiplyScalar(speed);
+                trackingVelocity.set(newDir.x, newDir.y);
+                // also add small random impulse
+                trackingVelocity.x += (Math.random() - 0.5) * 1.5;
+                trackingVelocity.y += (Math.random() - 0.5) * 1.5;
+                // clamp speed to reasonable range
+                const maxSpeed = 4.5 * difficultySettings[currentDifficulty].speedMult;
+                const minSpeed = 1.2;
+                let spd = Math.sqrt(trackingVelocity.x*trackingVelocity.x + trackingVelocity.y*trackingVelocity.y);
+                if (spd > maxSpeed) {
+                    trackingVelocity.multiplyScalar(maxSpeed / spd);
+                } else if (spd < minSpeed) {
+                    trackingVelocity.multiplyScalar(minSpeed / spd);
+                }
+            }
+            updateHealthBarPosition();
+        }
+        
+        function updateTrackingDamage(deltaSec) {
+            if (!gameActive || currentMode !== 'tracking' || !trackingTarget) return;
+            const raycaster = new THREE.Raycaster();
+            raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
+            const intersects = raycaster.intersectObject(trackingTarget);
+            if (intersects.length > 0) {
+                const dmgPerSec = difficultySettings[currentDifficulty].trackingDamagePerSec;
+                const damageThisFrame = dmgPerSec * deltaSec;
+                trackingHealth -= damageThisFrame;
+                if (trackingHealth <= 0) {
+                    score++;
+                    updateUI();
+                    spawnTrackingTarget();
+                } else {
+                    updateHealthBarFill();
+                }
+                trackingTarget.material.emissiveIntensity = 0.9;
+                setTimeout(() => { if(trackingTarget) trackingTarget.material.emissiveIntensity = 0.4; }, 80);
+                document.body.style.transform = 'scale(0.99)';
+                setTimeout(() => document.body.style.transform = '', 50);
+            } else {
+                if(trackingTarget) trackingTarget.material.emissiveIntensity = 0.4;
+            }
+        }
+        
+        // Shooting for gridshot
+        function shootGridshot() {
+            if (!gameActive || currentMode !== 'gridshot') return;
+            const raycaster = new THREE.Raycaster();
+            raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
+            const intersects = raycaster.intersectObjects(gridTargets);
+            if (intersects.length > 0) {
+                score++;
+                updateUI();
+                respawnGridTarget(intersects[0].object);
+                document.body.style.transform = 'scale(0.98)';
+                setTimeout(() => document.body.style.transform = '', 70);
+            }
+        }
+        
+        // Timer and reset
+        function startGameTimer() {
+            if (timerInterval) clearInterval(timerInterval);
+            timeLeft = 60;
+            updateUI();
+            gameActive = true;
+            timerInterval = setInterval(() => {
+                if (!gameActive) return;
+                if (timeLeft <= 1) {
+                    clearInterval(timerInterval);
+                    gameActive = false;
+                    timerSpan.innerText = "0";
+                } else {
+                    timeLeft--;
+                    updateUI();
+                }
+            }, 1000);
+        }
+        
+        function resetGameMode() {
+            gridTargets.forEach(t => scene.remove(t));
+            if (trackingTarget) scene.remove(trackingTarget);
+            if (healthBarObj) scene.remove(healthBarObj);
+            gridTargets = [];
+            trackingTarget = null;
+            if (currentMode === 'gridshot') {
+                spawnGridshotTargets();
+            } else {
+                spawnTrackingTarget();
+            }
+            score = 0;
+            updateUI();
+            if (timerInterval) clearInterval(timerInterval);
+            startGameTimer();
+        }
+        
+        function setDifficulty(diff) {
+            currentDifficulty = diff;
+            updateUI();
+            resetGameMode();
+        }
+        
+        function setMode(mode) {
+            currentMode = mode;
+            updateUI();
+            resetGameMode();
+        }
+        
+        // ----- Mouse Look -----
+        let isPointerLock = false;
+        let mouseSensitivity = 1.0;
+        let yaw = 0, pitch = 0;
+        
+        function onMouseMove(e) {
+            if (!isPointerLock) return;
+            const dx = e.movementX || 0;
+            const dy = e.movementY || 0;
+            const sens = mouseSensitivity * 0.0022;
+            yaw -= dx * sens;
+            pitch -= dy * sens;
+            pitch = Math.min(Math.PI / 2.2, Math.max(-Math.PI / 2.2, pitch));
+            camera.rotation.order = 'YXZ';
+            camera.rotation.y = yaw;
+            camera.rotation.x = pitch;
+        }
+        
+        function onPointerLockChange() {
+            isPointerLock = document.pointerLockElement === renderer.domElement;
+            if (!isPointerLock) {
+                settingsModal.style.display = 'flex';
+                gameActive = false;
+            } else {
+                settingsModal.style.display = 'none';
+                gameActive = true;
+                if (!timerInterval && timeLeft > 0) startGameTimer();
+            }
+        }
+        
+        function handleKeydown(e) {
+            const key = e.code;
+            if (key === 'KeyG') { setMode('gridshot'); e.preventDefault(); }
+            else if (key === 'KeyT') { setMode('tracking'); e.preventDefault(); }
+            else if (key === 'Digit1') { setDifficulty('easy'); e.preventDefault(); }
+            else if (key === 'Digit2') { setDifficulty('medium'); e.preventDefault(); }
+            else if (key === 'Digit3') { setDifficulty('hard'); e.preventDefault(); }
+            else if (key === 'Digit4') { setDifficulty('incredible'); e.preventDefault(); }
+            else if (key === 'Escape') {
+                if (isPointerLock) document.exitPointerLock();
+                else settingsModal.style.display = 'flex';
+                e.preventDefault();
+            }
+        }
+        
+        window.addEventListener('mousedown', (e) => {
+            if (e.button === 0 && isPointerLock && gameActive) {
+                if (currentMode === 'gridshot') shootGridshot();
+                e.preventDefault();
+            }
+        });
+        document.addEventListener('mousemove', onMouseMove);
+        document.addEventListener('pointerlockchange', onPointerLockChange);
+        document.addEventListener('keydown', handleKeydown);
+        
+        sensSlider.addEventListener('input', () => {
+            mouseSensitivity = parseFloat(sensSlider.value);
+            sensSpan.innerText = mouseSensitivity.toFixed(2);
+            saveSettings();
+        });
+        crosshairColorPicker.addEventListener('input', () => { updateCrosshairStyle(); saveSettings(); });
+        thickSlider.addEventListener('input', () => { thickSpan.innerText = thickSlider.value; updateCrosshairStyle(); saveSettings(); });
+        lengthSlider.addEventListener('input', () => { lengthSpan.innerText = lengthSlider.value; updateCrosshairStyle(); saveSettings(); });
+        dotToggle.addEventListener('change', () => { updateCrosshairStyle(); saveSettings(); });
+        closeSettingsBtn.addEventListener('click', () => {
+            settingsModal.style.display = 'none';
+            if (!isPointerLock) renderer.domElement.requestPointerLock();
+            else gameActive = true;
+        });
+        
+        loadSettings();
+        updateCrosshairStyle();
+        setMode('gridshot');
+        
+        setTimeout(() => {
+            if (!localStorage.getItem('aimTrainerSettings')) settingsModal.style.display = 'flex';
+        }, 200);
+        
+        let lastTime = performance.now();
+        function animate() {
+            const now = performance.now();
+            let delta = Math.min(0.033, (now - lastTime) / 1000);
+            lastTime = now;
+            if (gameActive && isPointerLock && currentMode === 'tracking') {
+                updateTrackingMovement(delta);
+                updateTrackingDamage(delta);
+            }
+            renderer.render(scene, camera);
+            labelRenderer.render(scene, camera);
+            requestAnimationFrame(animate);
+        }
+        animate();
+        
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            labelRenderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+</html>
